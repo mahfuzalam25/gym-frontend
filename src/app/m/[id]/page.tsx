@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 
 // Updated to match the new Django models (strings instead of string arrays)
 interface MachineData {
@@ -198,8 +199,14 @@ export default function MachinePage() {
 
           {/* Bottom Branding / Logo Placeholder */}
           <div className="mt-16 pb-8 flex justify-center lg:justify-start w-full opacity-90">
-            <div className="flex flex-col items-center lg:items-start gap-1 font-black text-xl tracking-tighter text-black">
-              NEXACORE GYM
+            <div className="flex flex-col items-center lg:items-start gap-1">
+              <Image 
+                src="/gymmvplogo.png" 
+                alt="Gym Logo" 
+                width={160} 
+                height={40} 
+                className="object-contain" 
+              />
             </div>
           </div>
 
