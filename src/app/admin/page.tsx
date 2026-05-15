@@ -25,28 +25,35 @@ const QrIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" 
 const DownloadIcon = () => <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
 const PlusIcon = () => <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>;
 const TrashIcon = () => <svg className="w-5 h-5 text-red-500 hover:text-red-700 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
-// NEW: Edit Icon
 const EditIcon = () => <svg className="w-5 h-5 text-blue-500 hover:text-blue-700 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
+const LogoutIcon = () => <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
 
 export default function AdminDashboard() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 
-  // --- STATE ---
+  // --- AUTH STATE ---
+  const [token, setToken] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // --- DASHBOARD STATE ---
   const [stats, setStats] = useState<StatsData | null>(null);
   const [machines, setMachines] = useState<MachineListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); 
 
   // Modals & Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null); // NEW: Tracks which machine is being edited
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [qrPreview, setQrPreview] = useState<{ name: string; base64: string } | null>(null);
-  
-  // Custom Toast Notification State
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
+    video_url: "",
     how_to_use: "",
     common_mistakes: "",
     muscles_worked: "",
@@ -56,32 +63,89 @@ export default function AdminDashboard() {
   
   const [image1, setImage1] = useState<File | null>(null);
   const [image2, setImage2] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null); // NEW: Video File State
 
-  // Helper to trigger the custom notification
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000); // Disappears after 3 seconds
+    setTimeout(() => setToast(null), 3000);
   };
 
   const resetForm = () => {
-    setFormData({ name: "", how_to_use: "", common_mistakes: "", muscles_worked: "", pt_booking_url: "", class_join_url: "" });
+    setFormData({ name: "", video_url: "", how_to_use: "", common_mistakes: "", muscles_worked: "", pt_booking_url: "", class_join_url: "" });
     setImage1(null);
     setImage2(null);
+    setVideoFile(null);
     setEditingId(null);
     setIsFormOpen(false);
   }
 
-  // --- DATA FETCHING ---
+  // --- AUTHENTICATION LOGIC ---
   useEffect(() => {
+    const checkAuth = async () => {
+      const savedToken = localStorage.getItem("admin_token");
+      if (savedToken) {
+        setToken(savedToken);
+      }
+      setAuthChecking(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError("");
+
+    try {
+      const res = await fetch(`${API_BASE}/api/machines/admin/login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setToken(data.token);
+        localStorage.setItem("admin_token", data.token);
+        setRefreshTrigger(prev => prev + 1); // Trigger data fetch
+      } else {
+        setLoginError("Invalid admin credentials");
+      }
+    } catch (error) {
+      setLoginError("Network error. Make sure the backend is running.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem("admin_token");
+    setStats(null);
+    setMachines([]);
+  };
+
+  // --- DATA FETCHING (Protected) ---
+  useEffect(() => {
+    if (!token) return;
+
     const loadData = async () => {
+      setLoading(true);
       try {
+        const headers = { "Authorization": `Token ${token}` };
         const [statsRes, listRes] = await Promise.all([
-          fetch(`${API_BASE}/api/machines/admin/stats/`),
-          fetch(`${API_BASE}/api/machines/admin/list/`)
+          fetch(`${API_BASE}/api/machines/admin/stats/`, { headers }),
+          fetch(`${API_BASE}/api/machines/admin/list/`, { headers })
         ]);
         
         if (statsRes.ok) setStats(await statsRes.json());
         if (listRes.ok) setMachines(await listRes.json());
+        
+        // Handle invalid token
+        if (statsRes.status === 401 || listRes.status === 401) {
+          handleLogout();
+        }
       } catch (error) {
         console.error("Failed to load dashboard data", error);
       } finally {
@@ -90,11 +154,9 @@ export default function AdminDashboard() {
     };
 
     loadData();
-  }, [refreshTrigger, API_BASE]);
+  }, [refreshTrigger, token, API_BASE]);
 
-  // --- CRUD OPERATIONS ---
-  
-  // NEW: Fetch specific machine data and open the edit modal
+  // --- CRUD OPERATIONS (Protected) ---
   const handleEditClick = async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/machines/${id}/`);
@@ -102,6 +164,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         setFormData({
           name: data.name || "",
+          video_url: data.video_url || "",
           how_to_use: data.how_to_use || "",
           common_mistakes: data.common_mistakes || "",
           muscles_worked: data.muscles_worked || "",
@@ -121,14 +184,13 @@ export default function AdminDashboard() {
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-    
     try {
       const res = await fetch(`${API_BASE}/api/machines/admin/manage/${id}/`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { "Authorization": `Token ${token}` }
       });
       if (res.ok) {
         showToast("Machine deleted successfully", "success");
-        setLoading(true);
         setRefreshTrigger(prev => prev + 1);
       } else {
         showToast("Failed to delete machine", "error");
@@ -145,6 +207,7 @@ export default function AdminDashboard() {
     const submitData = new FormData();
     submitData.append("name", formData.name);
     
+    if (formData.video_url) submitData.append("video_url", formData.video_url);
     if (formData.how_to_use) submitData.append("how_to_use", formData.how_to_use);
     if (formData.common_mistakes) submitData.append("common_mistakes", formData.common_mistakes);
     if (formData.muscles_worked) submitData.append("muscles_worked", formData.muscles_worked);
@@ -153,28 +216,26 @@ export default function AdminDashboard() {
     
     if (image1) submitData.append("exercise_image_1", image1);
     if (image2) submitData.append("exercise_image_2", image2);
+    if (videoFile) submitData.append("video_file", videoFile);
 
-    // NEW: If editingId exists, send a PATCH request to update. Otherwise, POST to create.
     const url = editingId 
       ? `${API_BASE}/api/machines/admin/manage/${editingId}/` 
       : `${API_BASE}/api/machines/admin/manage/`;
-      
     const method = editingId ? 'PATCH' : 'POST';
 
     try {
       const res = await fetch(url, {
         method: method,
+        headers: { "Authorization": `Token ${token}` }, // Note: Let the browser set Content-Type for FormData
         body: submitData
       });
       
       if (res.ok) {
         showToast(editingId ? "Machine updated successfully!" : "Machine saved successfully!", "success");
         resetForm();
-        setLoading(true);
         setRefreshTrigger(prev => prev + 1);
       } else {
         const errorData = await res.json();
-        console.error("Django Validation Error:", errorData);
         const firstErrorKey = Object.keys(errorData)[0];
         const firstErrorMessage = errorData[firstErrorKey][0];
         showToast(`${firstErrorKey}: ${firstErrorMessage}`, "error");
@@ -185,10 +246,12 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- QR CODE OPERATIONS ---
+  // --- QR CODE OPERATIONS (Protected) ---
   const handlePreviewQR = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/machines/admin/qr/${id}/`);
+      const res = await fetch(`${API_BASE}/api/machines/admin/qr/${id}/`, {
+        headers: { "Authorization": `Token ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setQrPreview({ name: data.machine_name, base64: data.qr_code_base64 });
@@ -198,10 +261,67 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleExportZIP = () => {
-    window.location.href = `${API_BASE}/api/machines/admin/qr/export/`;
+  const handleExportZIP = async () => {
+    try {
+      // Must fetch as blob because we need to pass the Auth Token
+      const res = await fetch(`${API_BASE}/api/machines/admin/qr/export/`, {
+        headers: { "Authorization": `Token ${token}` }
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "gym_qr_codes.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        showToast("Failed to export ZIP file.", "error");
+      }
+    } catch (error) {
+      console.error("Export failed", error);
+      showToast("Network error while exporting.", "error");
+    }
   };
 
+  // --- RENDER LOGIC ---
+
+  if (authChecking) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
+  }
+
+  // LOGIN SCREEN
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="flex justify-center mb-8">
+            <Image src="/gymmvplogo.png" alt="Gym Admin Logo" width={140} height={50} className="object-contain" />
+          </div>
+          <h1 className="text-2xl font-black text-center text-gray-900 mb-6">Admin Login</h1>
+          {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 font-semibold text-center border border-red-100">{loginError}</div>}
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+              <input required type="text" value={loginUsername} onChange={(e) => setLoginUsername(e.target.value)} className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+              <input required type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <button type="submit" disabled={isLoggingIn} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition-colors disabled:opacity-70">
+              {isLoggingIn ? "Authenticating..." : "Login"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // MAIN DASHBOARD (If loading initial data)
   if (loading && machines.length === 0) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
   }
@@ -213,26 +333,17 @@ export default function AdminDashboard() {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex justify-between items-center">
           <div className="flex items-center">
-                <Image 
-                    src="/gymmvplogo.png" 
-                    alt="Gym Admin Logo" 
-                    width={80} 
-                    height={35} 
-                    className="object-contain" 
-                />
-            </div>
-          <div className="flex gap-4">
-            <button 
-              onClick={handleExportZIP}
-              className="flex items-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-gray-300"
-            >
-              <DownloadIcon /> Export All QR Codes
+            <Image src="/gymmvplogo.png" alt="Gym Admin Logo" width={100} height={40} className="object-contain" />
+          </div>
+          <div className="flex gap-3 md:gap-4 items-center">
+            <button onClick={handleExportZIP} className="hidden sm:flex items-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-gray-300">
+              <DownloadIcon /> Export ZIP
             </button>
-            <button 
-              onClick={() => { resetForm(); setIsFormOpen(true); }}
-              className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors"
-            >
-              <PlusIcon /> Add Machine
+            <button onClick={() => { resetForm(); setIsFormOpen(true); }} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors">
+              <PlusIcon /> Add
+            </button>
+            <button onClick={handleLogout} className="flex items-center text-gray-500 hover:text-red-600 font-semibold py-2 px-2 text-sm transition-colors ml-2" title="Logout">
+              <LogoutIcon />
             </button>
           </div>
         </div>
@@ -262,7 +373,7 @@ export default function AdminDashboard() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
               <div className="bg-amber-50 p-3 rounded-lg"><ChartIcon /></div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Total Button Clicks</p>
+                <p className="text-sm font-medium text-gray-500">Button Clicks</p>
                 <p className="text-3xl font-extrabold">{stats?.total_clicks || 0}</p>
               </div>
             </div>
@@ -270,7 +381,7 @@ export default function AdminDashboard() {
 
           {/* MACHINE LIST TABLE */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-5 border-b border-gray-100">
+            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-lg font-bold text-gray-900">Machine Management</h2>
             </div>
             <div className="overflow-x-auto">
@@ -336,11 +447,7 @@ export default function AdminDashboard() {
 
       {/* --- CUSTOM TOAST NOTIFICATION --- */}
       {toast && (
-        <div 
-          className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 transform transition-all duration-300 ${
-            toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
-          }`}
-        >
+        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 transform transition-all duration-300 ${toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
           {toast.type === "success" ? (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
           ) : (
@@ -365,6 +472,22 @@ export default function AdminDashboard() {
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Machine Name *</label>
                   <input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. Chest Press" />
                 </div>
+
+                {/* --- NEW VIDEO SECTION --- */}
+                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 space-y-4">
+                  <h3 className="text-sm font-bold text-indigo-900">Media & Video Instruction</h3>
+                  <div>
+                    <label className="block text-xs font-semibold text-indigo-800 mb-1">Video Link (YouTube / Vimeo / URL)</label>
+                    <input type="url" value={formData.video_url} onChange={(e) => setFormData({...formData, video_url: e.target.value})} className="w-full border border-indigo-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="https://youtube.com/watch?v=..." />
+                    
+                  </div>
+                  <div className="border-t border-indigo-200 pt-3">
+                    <label className="block text-xs font-semibold text-indigo-800 mb-1">Or Upload Raw Video (.mp4)</label>
+                    <input type="file" accept="video/mp4,video/x-m4v,video/*" onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)} className="w-full text-xs text-indigo-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-100 file:text-indigo-800 hover:file:bg-indigo-200 cursor-pointer" />
+                    {editingId && <p className="text-[10px] text-indigo-500 mt-1">Leave blank to keep existing video file.</p>}
+                  </div>
+                </div>
+                {/* ----------------------- */}
                 
                 <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <div>
@@ -432,7 +555,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
