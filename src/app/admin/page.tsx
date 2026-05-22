@@ -126,7 +126,7 @@ export default function AdminDashboard() {
     setMachines([]);
   };
 
-  // --- DATA FETCHING (Protected) ---
+  // --- DATA FETCHING ---
   useEffect(() => {
     if (!token) return;
 
@@ -142,7 +142,6 @@ export default function AdminDashboard() {
         if (statsRes.ok) setStats(await statsRes.json());
         if (listRes.ok) setMachines(await listRes.json());
         
-        // Handle invalid token
         if (statsRes.status === 401 || listRes.status === 401) {
           handleLogout();
         }
@@ -156,7 +155,7 @@ export default function AdminDashboard() {
     loadData();
   }, [refreshTrigger, token, API_BASE]);
 
-  // --- CRUD OPERATIONS (Protected) ---
+  // --- CRUD OPERATIONS ---
   const handleEditClick = async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/machines/${id}/`);
@@ -226,7 +225,7 @@ export default function AdminDashboard() {
     try {
       const res = await fetch(url, {
         method: method,
-        headers: { "Authorization": `Token ${token}` }, // Note: Let the browser set Content-Type for FormData
+        headers: { "Authorization": `Token ${token}` },
         body: submitData
       });
       
@@ -246,7 +245,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- QR CODE OPERATIONS (Protected) ---
+  // --- QR CODE OPERATIONS ---
   const handlePreviewQR = async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/machines/admin/qr/${id}/`, {
@@ -263,7 +262,6 @@ export default function AdminDashboard() {
 
   const handleExportZIP = async () => {
     try {
-      // Must fetch as blob because we need to pass the Auth Token
       const res = await fetch(`${API_BASE}/api/machines/admin/qr/export/`, {
         headers: { "Authorization": `Token ${token}` }
       });
@@ -287,7 +285,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- RENDER LOGIC ---
+  // --- RENDER ---
 
   if (authChecking) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
@@ -321,7 +319,7 @@ export default function AdminDashboard() {
     );
   }
 
-  // MAIN DASHBOARD (If loading initial data)
+  // MAIN DASHBOARD
   if (loading && machines.length === 0) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
   }

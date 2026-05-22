@@ -10,8 +10,8 @@ interface MachineData {
   name: string;
   exercise_image_1: string | null;
   exercise_image_2: string | null;
-  video_url: string | null;   // NEW: For YouTube/Vimeo links
-  video_file: string | null;  // NEW: For uploaded .mp4 files
+  video_url: string | null;
+  video_file: string | null;
   how_to_use: string | null;
   common_mistakes: string | null;
   muscles_worked: string | null;
@@ -19,14 +19,11 @@ interface MachineData {
   class_join_url: string | null;
 }
 
-// --- HELPER FUNCTION: Convert standard URLs to Embed URLs ---
-// --- HELPER FUNCTION: Convert standard URLs to Embed URLs ---
+
 const getEmbedUrl = (url: string) => {
   if (!url) return "";
   
-  // Handle YouTube (Now includes Shorts!)
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    // This regex now specifically looks for "shorts/" as well as standard watch links
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
     return match ? `https://www.youtube.com/embed/${match[1]}` : url;
   }
@@ -37,7 +34,7 @@ const getEmbedUrl = (url: string) => {
     return match ? `https://player.vimeo.com/video/${match[1]}` : url;
   }
   
-  return url; // Fallback for standard links
+  return url;
 };
 
 export default function MachinePage() {
@@ -132,7 +129,7 @@ export default function MachinePage() {
   return (
     <div className="min-h-screen bg-[#f4f5f7] text-black font-sans flex flex-col selection:bg-gray-300">
 
-      {/* Header Bar - Super clean iOS Style */}
+      {/* Header Bar */}
       <div className="flex justify-end p-4 md:p-6 sticky top-0 bg-[#f4f5f7]/90 backdrop-blur-md z-50">
         <button
           onClick={handleBack}
@@ -152,7 +149,6 @@ export default function MachinePage() {
             {machine.name}
           </h1>
 
-          {/* --- NEW MEDIA CONTAINER --- */}
           {/* Renders if either a URL string OR a raw Video file exists */}
           {(machine.video_url || machine.video_file) && (
             <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-xl mb-8 flex-shrink-0">
