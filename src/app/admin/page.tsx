@@ -14,9 +14,16 @@ interface StatsData {
 interface MachineListItem {
   id: string;
   name: string;
+  gym?: string; // NEW: Added gym reference
   created_at: string;
   total_scans: number;
   total_clicks: number;
+}
+
+// NEW: Gym Interface
+interface GymData {
+  id: string;
+  name: string;
 }
 
 // --- ICONS ---
@@ -42,17 +49,22 @@ export default function AdminDashboard() {
   // --- DASHBOARD STATE ---
   const [stats, setStats] = useState<StatsData | null>(null);
   const [machines, setMachines] = useState<MachineListItem[]>([]);
+  const [gyms, setGyms] = useState<GymData[]>([]); // NEW: Gym list state
+  const [selectedGymId, setSelectedGymId] = useState<string>(""); // NEW: Active gym filter
   const [loading, setLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); 
 
   // Modals & Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isGymModalOpen, setIsGymModalOpen] = useState(false); // NEW: Gym Modal State
+  const [newGymName, setNewGymName] = useState(""); // NEW: Gym Input State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [qrPreview, setQrPreview] = useState<{ name: string; base64: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
+    gym: "", // NEW: Added gym to form data
     video_url: "",
     how_to_use: "",
     common_mistakes: "",
@@ -63,7 +75,7 @@ export default function AdminDashboard() {
   
   const [image1, setImage1] = useState<File | null>(null);
   const [image2, setImage2] = useState<File | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null); // NEW: Video File State
+  const [videoFile, setVideoFile] = useState<File | null>(null); 
 
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -71,7 +83,8 @@ export default function AdminDashboard() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", video_url: "", how_to_use: "", common_mistakes: "", muscles_worked: "", pt_booking_url: "", class_join_url: "" });
+    // Automatically select the active gym when opening the form
+    setFormData({ name: "", gym: selectedGymId, video_url: "", how_to_use: "", common_mistakes: "", muscles_worked: "", pt_booking_url: "", class_join_url: "" });
     setImage1(null);
     setImage2(null);
     setVideoFile(null);
@@ -88,7 +101,6 @@ export default function AdminDashboard() {
       }
       setAuthChecking(false);
     };
-
     checkAuth();
   }, []);
 
@@ -108,7 +120,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         setToken(data.token);
         localStorage.setItem("admin_token", data.token);
-        setRefreshTrigger(prev => prev + 1); // Trigger data fetch
+        setRefreshTrigger(prev => prev + 1); 
       } else {
         setLoginError("Invalid admin credentials");
       }
@@ -124,9 +136,28 @@ export default function AdminDashboard() {
     localStorage.removeItem("admin_token");
     setStats(null);
     setMachines([]);
+    setGyms([]);
   };
 
-  // --- DATA FETCHING ---
+  // --- NEW: FETCH GYMS ---
+  useEffect(() => {
+    if (!token) return;
+    const fetchGyms = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/machines/admin/gyms/`, {
+          headers: { "Authorization": `Token ${token}` }
+        });
+        if (res.ok) {
+          setGyms(await res.json());
+        }
+      } catch (error) {
+        console.error("Failed to load gyms", error);
+      }
+    };
+    fetchGyms();
+  }, [token, refreshTrigger, API_BASE]);
+
+  // --- DATA FETCHING (Filtered by Selected Gym) ---
   useEffect(() => {
     if (!token) return;
 
@@ -134,9 +165,11 @@ export default function AdminDashboard() {
       setLoading(true);
       try {
         const headers = { "Authorization": `Token ${token}` };
+        const query = selectedGymId ? `?gym_id=${selectedGymId}` : ""; // Append query if gym selected
+        
         const [statsRes, listRes] = await Promise.all([
-          fetch(`${API_BASE}/api/machines/admin/stats/`, { headers }),
-          fetch(`${API_BASE}/api/machines/admin/list/`, { headers })
+          fetch(`${API_BASE}/api/machines/admin/stats/${query}`, { headers }),
+          fetch(`${API_BASE}/api/machines/admin/list/${query}`, { headers })
         ]);
         
         if (statsRes.ok) setStats(await statsRes.json());
@@ -153,7 +186,34 @@ export default function AdminDashboard() {
     };
 
     loadData();
-  }, [refreshTrigger, token, API_BASE]);
+  }, [refreshTrigger, token, selectedGymId, API_BASE]);
+
+  // --- NEW: CREATE GYM ---
+  const handleCreateGym = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/api/machines/admin/gyms/`, {
+        method: "POST",
+        headers: { 
+          "Authorization": `Token ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name: newGymName })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast("Client Gym Created!", "success");
+        setNewGymName("");
+        setIsGymModalOpen(false);
+        setSelectedGymId(data.id); // Auto switch to new gym
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        showToast("Failed to create gym", "error");
+      }
+    } catch (error) {
+      showToast("Network error", "error");
+    }
+  };
 
   // --- CRUD OPERATIONS ---
   const handleEditClick = async (id: string) => {
@@ -163,6 +223,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         setFormData({
           name: data.name || "",
+          gym: data.gym || "", // Set gym ID
           video_url: data.video_url || "",
           how_to_use: data.how_to_use || "",
           common_mistakes: data.common_mistakes || "",
@@ -206,6 +267,7 @@ export default function AdminDashboard() {
     const submitData = new FormData();
     submitData.append("name", formData.name);
     
+    if (formData.gym) submitData.append("gym", formData.gym); // Attach Gym ID
     if (formData.video_url) submitData.append("video_url", formData.video_url);
     if (formData.how_to_use) submitData.append("how_to_use", formData.how_to_use);
     if (formData.common_mistakes) submitData.append("common_mistakes", formData.common_mistakes);
@@ -262,7 +324,8 @@ export default function AdminDashboard() {
 
   const handleExportZIP = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/machines/admin/qr/export/`, {
+      const query = selectedGymId ? `?gym_id=${selectedGymId}` : "";
+      const res = await fetch(`${API_BASE}/api/machines/admin/qr/export/${query}`, {
         headers: { "Authorization": `Token ${token}` }
       });
       
@@ -299,7 +362,7 @@ export default function AdminDashboard() {
           <div className="flex justify-center mb-8">
             <Image src="/gymmvplogo.png" alt="Gym Admin Logo" width={140} height={50} className="object-contain" />
           </div>
-          <h1 className="text-2xl font-black text-center text-gray-900 mb-6">Admin Login</h1>
+          <h1 className="text-2xl font-black text-center text-gray-900 mb-6">Super Admin Login</h1>
           {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 font-semibold text-center border border-red-100">{loginError}</div>}
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
@@ -320,7 +383,7 @@ export default function AdminDashboard() {
   }
 
   // MAIN DASHBOARD
-  if (loading && machines.length === 0) {
+  if (loading && machines.length === 0 && gyms.length === 0) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
   }
 
@@ -334,11 +397,30 @@ export default function AdminDashboard() {
             <Image src="/gymmvplogo.png" alt="Gym Admin Logo" width={100} height={40} className="object-contain" />
           </div>
           <div className="flex gap-3 md:gap-4 items-center">
+            
+            {/* NEW: GYM SELECTOR & ADD GYM BUTTON */}
+            <div className="hidden sm:flex items-center gap-2 border-r border-gray-200 pr-4 mr-2">
+              <select 
+                value={selectedGymId} 
+                onChange={(e) => setSelectedGymId(e.target.value)}
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none font-semibold"
+              >
+                <option value="">Global View (All Gyms)</option>
+                {gyms.map(gym => (
+                  <option key={gym.id} value={gym.id}>{gym.name}</option>
+                ))}
+              </select>
+              <button onClick={() => setIsGymModalOpen(true)} className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold p-2 px-3 rounded-lg text-sm transition-colors" title="Create New Client Gym">
+                + Gym
+              </button>
+            </div>
+            {/* --------------------------------- */}
+
             <button onClick={handleExportZIP} className="hidden sm:flex items-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-gray-300">
               <DownloadIcon /> Export ZIP
             </button>
             <button onClick={() => { resetForm(); setIsFormOpen(true); }} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors">
-              <PlusIcon /> Add
+              <PlusIcon /> Add Machine
             </button>
             <button onClick={handleLogout} className="flex items-center text-gray-500 hover:text-red-600 font-semibold py-2 px-2 text-sm transition-colors ml-2" title="Logout">
               <LogoutIcon />
@@ -395,7 +477,15 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-gray-100">
                   {machines.map((machine) => (
                     <tr key={machine.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-gray-900">{machine.name}</td>
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        {machine.name}
+                        {/* Display Gym tag if in Global View */}
+                        {!selectedGymId && machine.gym && (
+                           <span className="ml-2 bg-gray-100 text-gray-500 text-[10px] px-2 py-1 rounded-md border border-gray-200">
+                             {gyms.find(g => g.id === machine.gym)?.name || "Assigned"}
+                           </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <span className="bg-blue-50 text-blue-700 py-1 px-3 rounded-full text-xs font-bold">{machine.total_scans}</span>
                       </td>
@@ -456,6 +546,29 @@ export default function AdminDashboard() {
       )}
 
       {/* --- MODALS --- */}
+
+      {/* NEW: ADD GYM MODAL */}
+      {isGymModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h2 className="text-lg font-bold">Add New Client Gym</h2>
+              <button onClick={() => setIsGymModalOpen(false)} className="text-gray-400 hover:text-gray-900 text-xl font-bold">&times;</button>
+            </div>
+            <div className="p-6">
+              <form id="add-gym-form" onSubmit={handleCreateGym}>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Gym / Client Name</label>
+                <input required type="text" value={newGymName} onChange={(e) => setNewGymName(e.target.value)} className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. FitLife Downtown" />
+              </form>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button onClick={() => setIsGymModalOpen(false)} className="px-5 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-200 transition-colors">Cancel</button>
+              <button type="submit" form="add-gym-form" className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm">Save Gym</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add / Edit Machine Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -466,12 +579,25 @@ export default function AdminDashboard() {
             </div>
             <div className="p-6 overflow-y-auto flex-1">
               <form id="add-machine-form" onSubmit={handleSaveMachine} className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Machine Name *</label>
-                  <input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. Chest Press" />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Machine Name *</label>
+                    <input required type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. Chest Press" />
+                  </div>
+                  
+                  {/* NEW: GYM ASSIGNMENT DROPDOWN */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Assign to Gym *</label>
+                    <select required value={formData.gym} onChange={(e) => setFormData({...formData, gym: e.target.value})} className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                      <option value="" disabled>-- Select a Client Gym --</option>
+                      {gyms.map(gym => (
+                        <option key={gym.id} value={gym.id}>{gym.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {/* --- NEW VIDEO SECTION --- */}
                 <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 space-y-4">
                   <h3 className="text-sm font-bold text-indigo-900">Media & Video Instruction</h3>
                   <div>
@@ -485,7 +611,6 @@ export default function AdminDashboard() {
                     {editingId && <p className="text-[10px] text-indigo-500 mt-1">Leave blank to keep existing video file.</p>}
                   </div>
                 </div>
-                {/* ----------------------- */}
                 
                 <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <div>
