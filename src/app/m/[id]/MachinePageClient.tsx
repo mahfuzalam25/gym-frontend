@@ -8,6 +8,9 @@ import Image from "next/image";
 interface MachineData {
   id: string;
   name: string;
+  gym_name: string | null;
+  gym_logo: string | null;
+  gym_color: string | null;
   exercise_image_1: string | null;
   exercise_image_2: string | null;
   video_url: string | null;
@@ -18,7 +21,6 @@ interface MachineData {
   pt_booking_url: string | null;
   class_join_url: string | null;
 }
-
 
 const getEmbedUrl = (url: string) => {
   if (!url) return "";
@@ -126,6 +128,12 @@ export default function MachinePageClient() {
     );
   }
 
+  // Dynamic styling object for the buttons
+  const dynamicButtonStyle = machine.gym_color ? {
+    backgroundColor: machine.gym_color,
+    borderColor: machine.gym_color,
+  } : {};
+
   return (
     <div className="min-h-screen bg-[#f4f5f7] text-black font-sans flex flex-col selection:bg-gray-300">
 
@@ -171,20 +179,19 @@ export default function MachinePageClient() {
             </div>
           )}
 
-          {/* Fallback/Secondary Images */}
-          <div className="flex justify-center items-center gap-4 w-full px-2">
+          <div className="flex flex-col justify-center items-center gap-6 w-full px-2">
             {machine.exercise_image_1 && (
               <img
                 src={machine.exercise_image_1}
                 alt={`${machine.name} start`}
-                className="w-1/2 aspect-square object-contain mix-blend-darken bg-white/50 rounded-xl p-2"
+                className="w-full h-auto object-contain mix-blend-darken bg-white/50 rounded-xl p-2"
               />
             )}
             {machine.exercise_image_2 && (
               <img
                 src={machine.exercise_image_2}
                 alt={`${machine.name} end`}
-                className="w-1/2 aspect-square object-contain mix-blend-darken bg-white/50 rounded-xl p-2"
+                className="w-full h-auto object-contain mix-blend-darken bg-white/50 rounded-xl p-2"
               />
             )}
           </div>
@@ -227,7 +234,8 @@ export default function MachinePageClient() {
               {machine.pt_booking_url && (
                 <button
                   onClick={() => handleActionClick("PT", machine.pt_booking_url)}
-                  className="flex-1 bg-[#535353] hover:bg-gray-800 text-white font-bold py-4 px-2 text-[11px] sm:text-xs uppercase tracking-wider shadow-sm border-[3px] border-gray-300 transition-colors rounded-lg"
+                  style={dynamicButtonStyle}
+                  className="flex-1 bg-[#535353] hover:opacity-80 text-white font-bold py-4 px-2 text-[11px] sm:text-xs uppercase tracking-wider shadow-sm border-[3px] border-gray-300 transition-opacity rounded-lg"
                 >
                   BOOK PT SESSION
                 </button>
@@ -236,7 +244,8 @@ export default function MachinePageClient() {
               {machine.class_join_url && (
                 <button
                   onClick={() => handleActionClick("CLASS", machine.class_join_url)}
-                  className="flex-1 bg-[#535353] hover:bg-gray-800 text-white font-bold py-4 px-2 text-[11px] sm:text-xs uppercase tracking-wider shadow-sm border-[3px] border-gray-300 transition-colors rounded-lg"
+                  style={dynamicButtonStyle}
+                  className="flex-1 bg-[#535353] hover:opacity-80 text-white font-bold py-4 px-2 text-[11px] sm:text-xs uppercase tracking-wider shadow-sm border-[3px] border-gray-300 transition-opacity rounded-lg"
                 >
                   BOOK A CLASS
                 </button>
@@ -247,13 +256,24 @@ export default function MachinePageClient() {
           {/* Bottom Branding */}
           <div className="mt-16 pb-8 flex justify-center lg:justify-start w-full opacity-90">
             <div className="flex flex-col items-center lg:items-start gap-1">
-              <Image 
-                src="/gymmvplogo.png" 
-                alt="Gym Logo" 
-                width={160} 
-                height={40} 
-                className="object-contain" 
-              />
+              {/* Dynamic Logo Implementation */}
+              {machine.gym_logo ? (
+                <img 
+                  src={machine.gym_logo} 
+                  alt={`${machine.gym_name || 'Gym'} Logo`} 
+                  className="w-[160px] h-auto max-h-[80px] object-contain" 
+                />
+              ) : (
+                <Image 
+                  src="/gymmvplogo.png" 
+                  alt="Gym Logo" 
+                  width={160} 
+                  height={40} 
+                  className="object-contain"
+                  priority
+                  style={{ width: "auto", height: "auto" }} 
+                />
+              )}
             </div>
           </div>
 
