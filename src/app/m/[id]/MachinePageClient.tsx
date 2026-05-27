@@ -179,19 +179,20 @@ export default function MachinePageClient() {
             </div>
           )}
 
-          <div className="flex flex-col justify-center items-center gap-6 w-full px-2">
+          {/* UPDATE: Reverted to Side-by-Side Images with refined styling */}
+          <div className="flex flex-row justify-center items-center gap-4 w-full px-2 mt-2">
             {machine.exercise_image_1 && (
               <img
                 src={machine.exercise_image_1}
                 alt={`${machine.name} start`}
-                className="w-full h-auto object-contain mix-blend-darken bg-white/50 rounded-xl p-2"
+                className="w-1/2 aspect-square object-contain mix-blend-darken bg-white/70 rounded-xl p-3 shadow-sm border border-gray-200"
               />
             )}
             {machine.exercise_image_2 && (
               <img
                 src={machine.exercise_image_2}
                 alt={`${machine.name} end`}
-                className="w-full h-auto object-contain mix-blend-darken bg-white/50 rounded-xl p-2"
+                className="w-1/2 aspect-square object-contain mix-blend-darken bg-white/70 rounded-xl p-3 shadow-sm border border-gray-200"
               />
             )}
           </div>
@@ -256,19 +257,19 @@ export default function MachinePageClient() {
           {/* Bottom Branding */}
           <div className="mt-16 pb-8 flex justify-center lg:justify-start w-full opacity-90">
             <div className="flex flex-col items-center lg:items-start gap-1">
-              {/* Dynamic Logo Implementation */}
+              {/* Dynamic Logo Implementation - Scaled Up */}
               {machine.gym_logo ? (
                 <img 
                   src={machine.gym_logo} 
                   alt={`${machine.gym_name || 'Gym'} Logo`} 
-                  className="w-[160px] h-auto max-h-[80px] object-contain" 
+                  className="w-[200px] h-auto max-h-[100px] object-contain" 
                 />
               ) : (
                 <Image 
                   src="/gymmvplogo.png" 
                   alt="Gym Logo" 
-                  width={160} 
-                  height={40} 
+                  width={200} 
+                  height={50} 
                   className="object-contain"
                   priority
                   style={{ width: "auto", height: "auto" }} 
