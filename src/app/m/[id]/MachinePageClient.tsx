@@ -179,20 +179,20 @@ export default function MachinePageClient() {
             </div>
           )}
 
-          {/* UPDATE: Reverted to Side-by-Side Images with refined styling */}
-          <div className="flex flex-row justify-center items-center gap-4 w-full px-2 mt-2">
+          {/* Fallback/Secondary Images (Reverted to Original Style) */}
+          <div className="flex justify-center items-center gap-4 w-full px-1">
             {machine.exercise_image_1 && (
               <img
                 src={machine.exercise_image_1}
                 alt={`${machine.name} start`}
-                className="w-1/2 aspect-square object-contain mix-blend-darken bg-white/70 rounded-xl p-3 shadow-sm border border-gray-200"
+                className="w-1/2 aspect-square object-contain mix-blend-darken"
               />
             )}
             {machine.exercise_image_2 && (
               <img
                 src={machine.exercise_image_2}
                 alt={`${machine.name} end`}
-                className="w-1/2 aspect-square object-contain mix-blend-darken bg-white/70 rounded-xl p-3 shadow-sm border border-gray-200"
+                className="w-1/2 aspect-square object-contain mix-blend-darken"
               />
             )}
           </div>
