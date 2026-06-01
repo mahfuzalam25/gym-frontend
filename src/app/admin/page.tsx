@@ -411,7 +411,7 @@ export default function AdminDashboard() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="flex justify-center mb-8">
-            <Image priority style={{ width: "auto", height: "auto" }} src="/gymmvplogo.png" alt="Gym Admin Logo" width={140} height={50} className="object-contain" />
+            <Image priority style={{ width: "auto", height: "auto" }} src="/liftlogiclogo.png" alt="Gym Admin Logo" width={140} height={50} className="object-contain" />
           </div>
           <h1 className="text-2xl font-black text-center text-gray-900 mb-6">Super Admin Login</h1>
           {loginError && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 font-semibold text-center border border-red-100">{loginError}</div>}
@@ -456,9 +456,9 @@ export default function AdminDashboard() {
               <Image 
                 priority 
                 style={{ width: "auto", height: "auto" }} 
-                src="/gymmvplogo.png" 
+                src="/liftlogiclogo.png" 
                 alt="Gym Admin Logo" 
-                width={50} 
+                width={80} 
                 height={30} 
                 className="object-contain" 
               />
